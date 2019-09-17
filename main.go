@@ -20,9 +20,6 @@ var LANIPS = sync.Map{}
 //BUFFERLEN 数据接收块大小
 var BUFFERLEN = 1024
 
-//TOUCHSTR 试探是否在线的字符串
-var TOUCHSTR = "hello"
-
 //PORT 本地监听端口
 var PORT = ":8888"
 
@@ -67,7 +64,7 @@ func listenMsg() {
 		data := make([]byte, BUFFERLEN)
 		_, rAddr, err := conn.ReadFromUDP(data)
 		if err != nil {
-			fmt.Println(err)
+			fmt.Println("Serv read", err)
 			continue
 		}
 
@@ -108,6 +105,7 @@ func sendMsg(ip string, message []byte) (err error) {
 		LANIPS.Store(ip, conn)
 	}
 	err = conn.(net.Conn).SetDeadline(time.Now().Add(5 * time.Second))
+
 	if err != nil {
 		fmt.Println("set deadline ", ip, err.Error())
 		return
@@ -141,39 +139,10 @@ func touch() {
 	LANIPS.Range(func(ip interface{}, conn interface{}) bool {
 
 		go func(ip string) {
-			fmt.Println(ip)
-			conn, err := net.DialTimeout("udp", ip+PORT, 1*time.Second)
+			err := sendMsg(ip, []byte("[Hello]"))
 			if err != nil {
-				fmt.Println("connect to ", ip, err.Error())
-				return
+				fmt.Println("touche", err.Error())
 			}
-
-			err = conn.SetDeadline(time.Now().Add(1 * time.Second))
-			if err != nil {
-				fmt.Println("set deadline ", ip, err.Error())
-				return
-			}
-
-			_, err = conn.Write([]byte(TOUCHSTR))
-			if err != nil {
-				fmt.Println("write ", ip, err.Error())
-				return
-			}
-
-			hexByte := make([]byte, 32)
-			_, err = conn.(net.Conn).Read(hexByte)
-			if err != nil {
-				//fmt.Println("read ", ip, err.Error())
-				return
-			}
-
-			if err == nil && string(hexByte) == byte2MD5string([]byte(TOUCHSTR)) {
-				LANIPS.Store(ip, conn)
-			} else {
-				fmt.Println(err, string(hexByte), byte2MD5string([]byte(TOUCHSTR)), string(hexByte) == byte2MD5string([]byte(TOUCHSTR)))
-				LANIPS.Store(ip, nil)
-			}
-
 		}(ip.(string))
 
 		return true
