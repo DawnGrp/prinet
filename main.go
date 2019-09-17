@@ -35,7 +35,7 @@ func main() {
 
 	LANIPS.Range(func(ip interface{}, conn interface{}) bool {
 		if conn != nil {
-			fmt.Println(sendMsg(ip.(string), []byte("How are you")))
+			fmt.Println("send msg ", sendMsg(ip.(string), []byte("How are you")))
 		}
 
 		return true
@@ -47,13 +47,13 @@ func main() {
 func listenMsg() {
 	addr, err := net.ResolveUDPAddr("udp", PORT)
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println("resolve udp addr", err)
 		os.Exit(1)
 	}
 
 	conn, err := net.ListenUDP("udp", addr)
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println("listen udp", err)
 		os.Exit(1)
 	}
 
@@ -82,10 +82,11 @@ func listenMsg() {
 		//算出哈希，返回，检验正确性。
 		_, err = conn.WriteToUDP([]byte(md5string), rAddr)
 		if err != nil {
-			fmt.Println(err)
+			fmt.Println("write md5", err)
 			continue
 		}
 
+		//instructionSets(conn.RemoteAddr().Network(), strData)
 		fmt.Println("Serv Send:", md5string)
 	}
 
@@ -203,8 +204,8 @@ func byte2MD5string(plaindata []byte) (md5string string) {
 	return hex.EncodeToString(m.Sum(nil))
 }
 
-func instructionSets(cmd string) (err error) {
-
+func instructionSets(ip, cmd string) (err error) {
+	fmt.Println("==============", ip)
 	switch {
 	case strings.HasPrefix(cmd, "[uname]"):
 
