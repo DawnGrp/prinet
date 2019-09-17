@@ -8,10 +8,9 @@ import (
 )
 
 func TestHex(t *testing.T) {
-	data := []byte{0, 1, 2, 3}
-	data = append(data, make([]byte, 10-len(data))...)
-
-	t.Log(data)
+	data := []byte("")
+	//data = bytes.TrimSpace(data)
+	t.Log(data, string(data))
 }
 func String2MD5(plainText string) (md5string string) {
 
