@@ -1,11 +1,15 @@
 package main
 
 import (
+	"bytes"
+	"crypto/md5"
+	"encoding/hex"
 	"fmt"
 	"log"
 	"math"
 	"net"
 	"os"
+	"strings"
 	"sync"
 	"time"
 )
@@ -22,17 +26,19 @@ var TOUCHSTR = "hello"
 //PORT 本地监听端口
 var PORT = ":8888"
 
-func main() {
-	initLanIPs()
-	go listenMsg()
+//HOSTNAME ...
+var HOSTNAME string
 
-	time.Sleep(2 * time.Second)
+func main() {
+	HOSTNAME, _ = os.Hostname()
+	go listenMsg()
+	initLanIPs()
 	touch()
 	time.Sleep(3 * time.Second)
 
 	LANIPS.Range(func(ip interface{}, conn interface{}) bool {
 		if conn != nil {
-			sendMsg(ip.(string), "How are you")
+			fmt.Println(sendMsg(ip.(string), []byte("How are you")))
 		}
 
 		return true
@@ -65,55 +71,107 @@ func listenMsg() {
 			continue
 		}
 
-		strData := string(data)
-		fmt.Println("Received:", strData)
+		//去掉多余字节
+		index := bytes.IndexByte(data, 0)
+		if index > -1 {
+			data = data[0:index]
+		}
 
-		//TODO: 算出哈希，返回，检验正确性。
-		_, err = conn.WriteToUDP(data, rAddr)
+		strData := string(data)
+		fmt.Println("Serv Received:", strData)
+
+		md5string := byte2MD5string(data)
+
+		//算出哈希，返回，检验正确性。
+		_, err = conn.WriteToUDP([]byte(md5string), rAddr)
 		if err != nil {
 			fmt.Println(err)
 			continue
 		}
 
-		fmt.Println("Send:", strData)
+		fmt.Println("Serv Send:", md5string)
 	}
 
 }
 
-func sendMsg(ip string, message string) bool {
+//通过检查指定IP是否存在链接，如果存在，发送消息
+func sendMsg(ip string, message []byte) (err error) {
 
-	if c, ok := LANIPS.Load(ip); ok && c != nil {
-		i, err := c.(net.Conn).Write([]byte(message))
+	//取出conn，如果没有，重新创建conn
+	conn, ok := LANIPS.Load(ip)
+	if !ok || conn == nil {
+		conn, err = net.Dial("udp", ip+PORT)
 		if err != nil {
-			fmt.Println(err.Error())
-			return false
+			fmt.Println("connect to ", ip, err.Error())
+			return
 		}
-		fmt.Println("send...", ip, message, i)
-		return true
+		LANIPS.Store(ip, conn)
+	}
+	err = conn.(net.Conn).SetDeadline(time.Now().Add(5 * time.Second))
+	if err != nil {
+		fmt.Println("set deadline ", ip, err.Error())
+		return
+	}
+	//写入数据
+	_, err = conn.(net.Conn).Write([]byte(message))
+	if err != nil {
+		return
 	}
 
-	return false
+	//接收数据到hexByte
+	hexByte := make([]byte, 32)
+	_, err = conn.(net.Conn).Read(hexByte)
+	if err != nil {
+		return
+	}
+
+	//检查消息md5值与收到的是否相同
+	if byte2MD5string(message) != string(hexByte) {
+		fmt.Printf("%s != %s", byte2MD5string(message), string(hexByte))
+		return fmt.Errorf("%s != %s", byte2MD5string(message), string(hexByte))
+	}
+
+	fmt.Println("Send Ok!")
+	return nil
 }
 
+//检查局域网内在线设备，保存到LANIPS列表中
 func touch() {
 
 	LANIPS.Range(func(ip interface{}, conn interface{}) bool {
 
 		go func(ip string) {
-			conn, err := net.Dial("udp", ip+PORT)
+			fmt.Println(ip)
+			conn, err := net.DialTimeout("udp", ip+PORT, 1*time.Second)
 			if err != nil {
 				fmt.Println("connect to ", ip, err.Error())
 				return
 			}
 
-			conn.Write([]byte(TOUCHSTR))
-			msg := make([]byte, len(TOUCHSTR))
-			_, err = conn.Read(msg)
+			err = conn.SetDeadline(time.Now().Add(1 * time.Second))
+			if err != nil {
+				fmt.Println("set deadline ", ip, err.Error())
+				return
+			}
 
-			if err == nil && string(msg) == TOUCHSTR {
+			_, err = conn.Write([]byte(TOUCHSTR))
+			if err != nil {
+				fmt.Println("write ", ip, err.Error())
+				return
+			}
+
+			hexByte := make([]byte, 32)
+			_, err = conn.(net.Conn).Read(hexByte)
+			if err != nil {
+				//fmt.Println("read ", ip, err.Error())
+				return
+			}
+
+			if err == nil && string(hexByte) == byte2MD5string([]byte(TOUCHSTR)) {
 				LANIPS.Store(ip, conn)
 			} else {
-				fmt.Println(err, string(msg), string(msg) == TOUCHSTR)
+				fmt.Println(err, string(hexByte), byte2MD5string([]byte(TOUCHSTR)), string(hexByte) == byte2MD5string([]byte(TOUCHSTR)))
+				LANIPS.Store(ip, nil)
 			}
 
 		}(ip.(string))
@@ -168,4 +226,24 @@ func lanIPs(ipNet *net.IPNet) {
 func inetNtoA(ip uint32) string {
 	return fmt.Sprintf("%d.%d.%d.%d",
 		byte(ip>>24), byte(ip>>16), byte(ip>>8), byte(ip))
+}
+
+func byte2MD5string(plaindata []byte) (md5string string) {
+	m := md5.New()
+	m.Write(plaindata)
+	return hex.EncodeToString(m.Sum(nil))
+}
+
+func instructionSets(cmd string) (err error) {
+
+	switch {
+	case strings.HasPrefix(cmd, "[uname]"):
+
+	case strings.HasPrefix(cmd, "[mname]"):
+
+	case strings.HasPrefix(cmd, "[talk]"):
+
+	}
+
+	return
 }
