@@ -1,20 +1,15 @@
 package main
 
 import (
-	"bufio"
 	"bytes"
 	"crypto/md5"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"math"
 	"net"
 	"os"
-	"os/exec"
-	"runtime"
-	"strings"
 	"sync"
 	"time"
 )
@@ -34,13 +29,14 @@ var HOSTNAME string
 //LOCALIP 本地IP地址
 var LOCALIP string
 
+//Data 数据
 type Data struct {
 	Cmd   string `json:"cmd"`
 	Param string `json:"param"`
 	Body  string `json:"body"`
-	IP    string `json:"ip"`
 }
 
+//Client 终端
 type Client struct {
 	Conn net.Conn
 	Name string
@@ -48,10 +44,9 @@ type Client struct {
 
 func main() {
 	go listenMsg()
+	time.Sleep(2 * time.Second) //等待监听启动完成。
 	initLanIPs()
 	touch()
-	time.Sleep(5 * time.Second)
-
 	ChatRoom()
 }
 
@@ -95,7 +90,7 @@ func listenMsg() {
 
 		//fmt.Println("Serv Received:", string(data))
 
-		go instructionSets(jsonData)
+		go instructionSets(rAddr.IP.String(), jsonData)
 
 		//算出哈希，返回，检验正确性。
 		md5string := byte2MD5string(data)
@@ -105,7 +100,7 @@ func listenMsg() {
 			continue
 		}
 
-		//fmt.Println("Serv Send:", md5string)
+		//fmt.Println("Serv Send:", md5string, rAddr.IP.String())
 	}
 
 }
@@ -134,7 +129,7 @@ func sendMsg(ip string, data Data) (err error) {
 		}
 	}
 
-	err = c.Conn.SetDeadline(time.Now().Add(2 * time.Second))
+	err = c.Conn.SetDeadline(time.Now().Add(3 * time.Second))
 	if err != nil {
 		fmt.Println("set deadline ", ip, err.Error())
 		return
@@ -161,49 +156,28 @@ func sendMsg(ip string, data Data) (err error) {
 		return fmt.Errorf("%s != %s", byte2MD5string(message), string(hexByte))
 	}
 
-	LANIPS.Store(ip, c)
-
-	//fmt.Println("Send Ok!")
 	return nil
 }
 
 //检查局域网内在线设备，保存到LANIPS列表中
 func touch() {
 
-	LANIPS.Range(func(ip interface{}, client interface{}) bool {
+	data := Data{
+		Cmd:  "uname",
+		Body: "",
+	}
+	LANIPS.Store("255.255.255.255", Client{})
+	err := sendMsg("255.255.255.255", data)
+	if err != nil {
+		fmt.Println("touch uname", err.Error())
+	}
 
-		go func(ip string) {
-			pingback := ""
-			switch {
-			case strings.Contains(runtime.GOOS, "windows"):
-				pingback = sysCmd("ping", "-n", "1", "-w", "500", ip)
-			case strings.Contains(runtime.GOOS, "darwin"):
-				pingback = sysCmd("ping", "-c", "1", "-t", "1", ip)
-			case strings.Contains(runtime.GOOS, "linux"):
-				pingback = sysCmd("ping", "-c", "1", "-t", "1", ip)
-			}
-
-			if !strings.Contains(strings.ToUpper(pingback), "TTL=") {
-				return
-			}
-
-			data := Data{
-				IP:   LOCALIP,
-				Cmd:  "uname",
-				Body: "",
-			}
-
-			err := sendMsg(ip, data)
-			if err != nil {
-				fmt.Println("touch", err.Error())
-			} else {
-				fmt.Println(ip, "online")
-			}
-
-		}(ip.(string))
-
-		return true
-	})
+	data.Cmd = "mname"
+	data.Body = HOSTNAME
+	err = sendMsg("255.255.255.255", data)
+	if err != nil {
+		fmt.Println("touch mname", err.Error())
+	}
 
 }
 
@@ -226,33 +200,6 @@ func initLanIPs() (ips []*net.IPNet) {
 	}
 
 	return
-}
-
-func sysCmd(cmdstring string, args ...string) string {
-
-	// 执行系统命令
-	// 第一个参数是命令名称
-	// 后面参数可以有多个，命令参数
-	cmd := exec.Command(cmdstring, args...)
-	// 获取输出对象，可以从该对象中读取输出结果
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		log.Fatal(err)
-	}
-	// 保证关闭输出流
-	defer stdout.Close()
-	// 运行命令
-	if err := cmd.Start(); err != nil {
-		fmt.Println(err)
-	}
-
-	// 读取输出结果
-	opBytes, err := ioutil.ReadAll(stdout)
-	if err != nil {
-		fmt.Println(err)
-	}
-	//fmt.Println(string(opBytes))
-	return string(opBytes)
 }
 
 func lanIPs(ipNet *net.IPNet) {
@@ -292,7 +239,7 @@ func byte2MD5string(plaindata []byte) (md5string string) {
 	return hex.EncodeToString(m.Sum(nil))
 }
 
-func instructionSets(data Data) (err error) {
+func instructionSets(ip string, data Data) (err error) {
 
 	switch data.Cmd {
 	case "uname":
@@ -300,83 +247,38 @@ func instructionSets(data Data) (err error) {
 			Cmd:   "mname",
 			Body:  HOSTNAME,
 			Param: "",
-			IP:    LOCALIP,
+			//IP:    LOCALIP,
 		}
 
-		err := sendMsg(data.IP, data2Send)
+		err := sendMsg(ip, data2Send)
 		if err != nil {
 			fmt.Println("re my name :", err.Error())
 		}
 	case "mname":
-		client, ok := LANIPS.Load(data.IP)
+		client, ok := LANIPS.Load(ip)
 		if !ok {
-			return fmt.Errorf("not found %s", data.IP)
+			return fmt.Errorf("not found %s", ip)
 		}
 
 		c, ok := client.(Client)
 		if !ok {
-			return fmt.Errorf("not client object %s", data.IP)
+			return fmt.Errorf("not client object %s", ip)
 		}
 
 		c.Name = data.Body
 
-		fmt.Println("store name", data.IP, c.Name)
-		LANIPS.Store(data.IP, c)
+		LANIPS.Store(ip, c)
 
 	case "talk":
-		//if data.IP != LOCALIP {
+		if ip != LOCALIP {
 
-		client, ok := LANIPS.Load(data.IP)
-		if ok {
-			fmt.Println(client.(Client).Name, ":", data.Body)
+			client, ok := LANIPS.Load(ip)
+			if ok {
+				fmt.Println(client.(Client).Name, ":", data.Body)
+			}
+
 		}
-
-		//}
 	}
 
 	return
-}
-
-//ChatRoom 启动一个聊天室
-func ChatRoom() {
-
-	reader := bufio.NewReader(os.Stdin)
-	fmt.Println("Chat Room")
-	fmt.Println("---------------------")
-
-	LANIPS.Range(func(ip interface{}, client interface{}) bool {
-
-		fmt.Println(ip, client.(Client).Name)
-		return true
-	})
-
-	for {
-		fmt.Print("Me: ")
-		text, _ := reader.ReadString('\n')
-		// convert CRLF to LF
-		text = strings.Replace(text, "\n", "", -1)
-
-		fmt.Print("receiv:")
-		LANIPS.Range(func(ip interface{}, client interface{}) bool {
-
-			c, ok := client.(Client)
-
-			if !ok || c.Name == "" {
-				fmt.Println("send To ", ip, ok, c.Name)
-				return true
-			}
-
-			fmt.Println("talk to:", c.Name)
-			err := sendMsg(ip.(string), Data{Cmd: "talk", Body: text, IP: LOCALIP})
-
-			if err != nil {
-				fmt.Println("send error:", err.Error())
-			}
-
-			fmt.Print("[" + c.Name + "] ")
-
-			return true
-		})
-		fmt.Println("")
-	}
 }
