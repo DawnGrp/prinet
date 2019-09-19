@@ -7,6 +7,11 @@ import (
 	"strings"
 )
 
+import (
+	"github.com/gcla/gowid"
+	"github.com/gcla/gowid/widgets/text"
+)
+
 //ChatRoom 启动一个聊天室
 func ChatRoom() {
 
@@ -44,4 +49,13 @@ func ChatRoom() {
 		})
 		fmt.Println("")
 	}
+}
+
+func ChatRoomUI() {
+
+	txt := text.New("hello world")
+	app, _ := gowid.NewApp(gowid.AppArgs{View: txt})
+	app.SimpleMainLoop()
+
+	app.SimpleMainLoop()
 }
