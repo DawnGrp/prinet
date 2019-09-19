@@ -199,6 +199,7 @@ func touch() {
 			} else {
 				fmt.Println(ip, "online")
 			}
+
 		}(ip.(string))
 
 		return true
@@ -302,7 +303,10 @@ func instructionSets(data Data) (err error) {
 			IP:    LOCALIP,
 		}
 
-		sendMsg(data.IP, data2Send)
+		err := sendMsg(data.IP, data2Send)
+		if err != nil {
+			fmt.Println("re my name :", err.Error())
+		}
 	case "mname":
 		client, ok := LANIPS.Load(data.IP)
 		if !ok {
@@ -316,17 +320,18 @@ func instructionSets(data Data) (err error) {
 
 		c.Name = data.Body
 
+		fmt.Println("store name", data.IP, c.Name)
 		LANIPS.Store(data.IP, c)
 
 	case "talk":
-		if data.IP != LOCALIP {
+		//if data.IP != LOCALIP {
 
-			client, ok := LANIPS.Load(data.IP)
-			if ok {
-				fmt.Println(client.(Client).Name, ":", data.Body)
-			}
-
+		client, ok := LANIPS.Load(data.IP)
+		if ok {
+			fmt.Println(client.(Client).Name, ":", data.Body)
 		}
+
+		//}
 	}
 
 	return
@@ -338,6 +343,12 @@ func ChatRoom() {
 	reader := bufio.NewReader(os.Stdin)
 	fmt.Println("Chat Room")
 	fmt.Println("---------------------")
+
+	LANIPS.Range(func(ip interface{}, client interface{}) bool {
+
+		fmt.Println(ip, client.(Client).Name)
+		return true
+	})
 
 	for {
 		fmt.Print("Me: ")
@@ -351,6 +362,7 @@ func ChatRoom() {
 			c, ok := client.(Client)
 
 			if !ok || c.Name == "" {
+				fmt.Println("send To ", ip, ok, c.Name)
 				return true
 			}
 
