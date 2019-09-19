@@ -43,11 +43,13 @@ type Client struct {
 }
 
 func main() {
-	go listenMsg()
-	time.Sleep(2 * time.Second) //等待监听启动完成。
-	initLanIPs()
-	touch()
-	ChatRoom()
+	// go listenMsg()
+	// time.Sleep(2 * time.Second) //等待监听启动完成。
+	// initLanIPs()
+	// touch()
+	// ChatRoom()
+
+	ChatRoomUI()
 }
 
 func listenMsg() {
@@ -121,12 +123,8 @@ func sendMsg(ip string, data Data) (err error) {
 		return fmt.Errorf("not client object")
 	}
 
-	if !ok || c.Conn == nil {
-		c.Conn, err = net.Dial("udp", ip+PORT)
-		if err != nil {
-			fmt.Println("connect to ", ip, err.Error())
-			return err
-		}
+	if c.Conn == nil {
+		return fmt.Errorf("client is nil")
 	}
 
 	err = c.Conn.SetDeadline(time.Now().Add(3 * time.Second))
