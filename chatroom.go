@@ -5,11 +5,8 @@ import (
 	"fmt"
 	"os"
 	"strings"
-)
 
-import (
-	"github.com/gcla/gowid"
-	"github.com/gcla/gowid/widgets/text"
+	"github.com/rivo/tview"
 )
 
 //ChatRoom 启动一个聊天室
@@ -51,11 +48,12 @@ func ChatRoom() {
 	}
 }
 
+//ChatRoomUI 带UI的聊天室
 func ChatRoomUI() {
 
-	txt := text.New("hello world")
-	app, _ := gowid.NewApp(gowid.AppArgs{View: txt})
-	app.SimpleMainLoop()
+	box := tview.NewBox().SetBorder(true).SetTitle("ChatBox!")
+	if err := tview.NewApplication().SetRoot(box, true).Run(); err != nil {
+		panic(err)
+	}
 
-	app.SimpleMainLoop()
 }

@@ -165,11 +165,13 @@ func touch() {
 		Body: "",
 	}
 	LANIPS.Store("255.255.255.255", Client{})
+
+	//询问大家的名字
 	err := sendMsg("255.255.255.255", data)
 	if err != nil {
 		fmt.Println("touch uname", err.Error())
 	}
-
+	//告诉大家自己的名字
 	data.Cmd = "mname"
 	data.Body = HOSTNAME
 	err = sendMsg("255.255.255.255", data)
