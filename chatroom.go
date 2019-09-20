@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"os"
 	"strings"
-
-	"github.com/rivo/tview"
 )
 
 //ChatRoom 启动一个聊天室
@@ -46,14 +44,4 @@ func ChatRoom() {
 		})
 		fmt.Println("")
 	}
-}
-
-//ChatRoomUI 带UI的聊天室
-func ChatRoomUI() {
-
-	box := tview.NewBox().SetBorder(true).SetTitle("ChatBox!")
-	if err := tview.NewApplication().SetRoot(box, true).Run(); err != nil {
-		panic(err)
-	}
-
 }

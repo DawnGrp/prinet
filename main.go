@@ -41,15 +41,14 @@ type Client struct {
 	Name string
 }
 
-func main() {
-	go listenMsg()
-	time.Sleep(2 * time.Second) //等待监听启动完成。
-	initLocalInfo()
-	touch()
-	ChatRoom()
+// func main() {
+// 	go listenMsg()
+// 	time.Sleep(2 * time.Second) //等待监听启动完成。
+// 	initLocalInfo()
+// 	touch()
+// 	ChatRoom()
 
-	// ChatRoomUI()
-}
+// }
 
 func listenMsg() {
 	addr, err := net.ResolveUDPAddr("udp", PORT)
