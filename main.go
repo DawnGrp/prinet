@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"math"
 	"net"
 	"os"
 	"sync"
@@ -43,13 +42,13 @@ type Client struct {
 }
 
 func main() {
-	// go listenMsg()
-	// time.Sleep(2 * time.Second) //等待监听启动完成。
-	// initLanIPs()
-	// touch()
-	// ChatRoom()
+	go listenMsg()
+	time.Sleep(2 * time.Second) //等待监听启动完成。
+	initLocalInfo()
+	touch()
+	ChatRoom()
 
-	ChatRoomUI()
+	// ChatRoomUI()
 }
 
 func listenMsg() {
@@ -76,6 +75,10 @@ func listenMsg() {
 			continue
 		}
 
+		if _, err := checkClient(rAddr.IP.String()); err != nil {
+			continue
+		}
+
 		//去掉多余字节
 		index := bytes.IndexByte(data, 0)
 		if index > -1 {
@@ -89,8 +92,6 @@ func listenMsg() {
 			fmt.Println("json format err", err.Error())
 			continue
 		}
-
-		//fmt.Println("Serv Received:", string(data))
 
 		go instructionSets(rAddr.IP.String(), jsonData)
 
@@ -116,15 +117,9 @@ func sendMsg(ip string, data Data) (err error) {
 		return fmt.Errorf("message to long")
 	}
 
-	//取出conn，如果没有，重新创建conn
-	client, ok := LANIPS.Load(ip)
-	c, ok := client.(Client)
-	if !ok {
-		return fmt.Errorf("not client object")
-	}
-
-	if c.Conn == nil {
-		return fmt.Errorf("client is nil")
+	c, err := checkClient(ip)
+	if err != nil {
+		return fmt.Errorf("no client")
 	}
 
 	err = c.Conn.SetDeadline(time.Now().Add(3 * time.Second))
@@ -136,6 +131,7 @@ func sendMsg(ip string, data Data) (err error) {
 	_, err = c.Conn.Write([]byte(message))
 	if err != nil {
 		c.Conn.Close()
+		LANIPS.Delete(ip)
 		return
 	}
 
@@ -144,12 +140,12 @@ func sendMsg(ip string, data Data) (err error) {
 	_, err = c.Conn.Read(hexByte)
 	if err != nil {
 		c.Conn.Close()
+		LANIPS.Delete(ip)
 		return
 	}
 
 	//检查消息md5值与收到的是否相同
 	if byte2MD5string(message) != string(hexByte) {
-		c.Conn.Close()
 		fmt.Printf("%s != %s", byte2MD5string(message), string(hexByte))
 		return fmt.Errorf("%s != %s", byte2MD5string(message), string(hexByte))
 	}
@@ -164,14 +160,12 @@ func touch() {
 		Cmd:  "uname",
 		Body: "",
 	}
-	LANIPS.Store("255.255.255.255", Client{})
 
-	//询问大家的名字
 	err := sendMsg("255.255.255.255", data)
 	if err != nil {
 		fmt.Println("touch uname", err.Error())
 	}
-	//告诉大家自己的名字
+
 	data.Cmd = "mname"
 	data.Body = HOSTNAME
 	err = sendMsg("255.255.255.255", data)
@@ -181,7 +175,8 @@ func touch() {
 
 }
 
-func initLanIPs() (ips []*net.IPNet) {
+//initLocalInfo ...
+func initLocalInfo() (ips []*net.IPNet) {
 	HOSTNAME, _ = os.Hostname()
 	addrs, err := net.InterfaceAddrs()
 	if err != nil {
@@ -193,7 +188,6 @@ func initLanIPs() (ips []*net.IPNet) {
 				fmt.Println("IP:", ip.IP)
 				fmt.Println("子网掩码:", ip.Mask)
 				LOCALIP = ip.IP.String()
-				lanIPs(ip)
 
 			}
 		}
@@ -202,41 +196,30 @@ func initLanIPs() (ips []*net.IPNet) {
 	return
 }
 
-func lanIPs(ipNet *net.IPNet) {
-	ip := ipNet.IP.To4()
-
-	var min, max uint32
-
-	for i := 0; i < 4; i++ {
-		b := uint32(ip[i] & ipNet.Mask[i])
-		min += b << ((3 - uint(i)) * 8)
-	}
-	one, _ := ipNet.Mask.Size()
-	max = min | uint32(math.Pow(2, float64(32-one))-1)
-	log.Printf("内网IP范围:%d - %d", min, max)
-	// max 是广播地址，忽略
-	// i & 0x000000ff  == 0 是尾段为0的IP，根据RFC的规定，忽略
-	for i := min; i < max; i++ {
-		if i&0x000000ff == 0 {
-			continue
-		}
-
-		LANIPS.LoadOrStore(inetNtoA(i), Client{Conn: nil, Name: ""})
-
-	}
-
-	return
-}
-
-func inetNtoA(ip uint32) string {
-	return fmt.Sprintf("%d.%d.%d.%d",
-		byte(ip>>24), byte(ip>>16), byte(ip>>8), byte(ip))
-}
-
 func byte2MD5string(plaindata []byte) (md5string string) {
 	m := md5.New()
 	m.Write(plaindata)
 	return hex.EncodeToString(m.Sum(nil))
+}
+
+func checkClient(ip string) (c Client, err error) {
+	//取出conn，如果没有，重新创建conn
+	client, ok := LANIPS.Load(ip)
+	if !ok {
+		conn, err := net.Dial("udp", ip+PORT)
+		if err != nil {
+			fmt.Println("connect to ", ip, err.Error())
+			return c, err
+		}
+
+		client = Client{Conn: conn, Name: ""}
+		LANIPS.Store(ip, client)
+	}
+	c, ok = client.(Client)
+	if !ok {
+		return c, fmt.Errorf("bad Type Client")
+	}
+	return c, err
 }
 
 func instructionSets(ip string, data Data) (err error) {
@@ -254,6 +237,7 @@ func instructionSets(ip string, data Data) (err error) {
 		if err != nil {
 			fmt.Println("re my name :", err.Error())
 		}
+		fmt.Println("被询问", ip)
 	case "mname":
 		client, ok := LANIPS.Load(ip)
 		if !ok {
@@ -265,6 +249,7 @@ func instructionSets(ip string, data Data) (err error) {
 			return fmt.Errorf("not client object %s", ip)
 		}
 
+		fmt.Println("收到答复", c, data.Body)
 		c.Name = data.Body
 
 		LANIPS.Store(ip, c)
