@@ -41,14 +41,15 @@ type Client struct {
 	Name string
 }
 
-// func main() {
-// 	go listenMsg()
-// 	time.Sleep(2 * time.Second) //等待监听启动完成。
-// 	initLocalInfo()
-// 	touch()
-// 	ChatRoom()
+func main() {
+	go listenMsg()
+	time.Sleep(1 * time.Second) //等待监听启动完成。
+	initLocalInfo()
+	touch()
 
-// }
+	ChatRoomUI()
+
+}
 
 func listenMsg() {
 	addr, err := net.ResolveUDPAddr("udp", PORT)
@@ -121,7 +122,7 @@ func sendMsg(ip string, data Data) (err error) {
 		return fmt.Errorf("no client")
 	}
 
-	err = c.Conn.SetDeadline(time.Now().Add(3 * time.Second))
+	err = c.Conn.SetDeadline(time.Now().Add(2 * time.Second))
 	if err != nil {
 		fmt.Println("set deadline ", ip, err.Error())
 		return
@@ -253,15 +254,16 @@ func instructionSets(ip string, data Data) (err error) {
 
 		LANIPS.Store(ip, c)
 
+		refreshClients()
+
 	case "talk":
-		if ip != LOCALIP {
 
-			client, ok := LANIPS.Load(ip)
-			if ok {
-				fmt.Println(client.(Client).Name, ":", data.Body)
-			}
-
+		client, ok := LANIPS.Load(ip)
+		if ok {
+			//fmt.Println(client.(Client).Name, ":", data.Body)
+			textBox.SetText(fmt.Sprintf("%s %s:%s", textBox.GetText(false), client.(Client).Name, data.Body))
 		}
+
 	}
 
 	return

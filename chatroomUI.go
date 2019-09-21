@@ -2,37 +2,77 @@
 package main
 
 import (
+	"fmt"
+
+	"github.com/gdamore/tcell"
 	"github.com/rivo/tview"
 )
 
-func main() {
+var textBox *tview.TextView
+var clientsBox *tview.TextView
+
+//ChatRoomUI 界面
+func ChatRoomUI() {
 	app := tview.NewApplication()
 	pages := tview.NewPages()
 
-	input := tview.NewInputField().
-		SetLabel("我")
+	input := tview.NewInputField()
+	input.SetFieldBackgroundColor(tcell.ColorDarkRed)
+	input.SetLabel(" Say: ").SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		if event.Key() == tcell.KeyEnter && len(input.GetText()) > 0 {
 
-	form := tview.NewForm()
+			LANIPS.Range(func(ip interface{}, client interface{}) bool {
 
-	form.AddFormItem(input)
-	form.SetBorder(false).SetTitle("输入框").SetTitleAlign(tview.AlignLeft)
+				c, ok := client.(Client)
+				if !ok || c.Name == "" {
+					return true
+				}
 
-	clients := tview.NewTextView().
-		SetTextAlign(tview.AlignCenter).
-		SetText("clients")
-	text := tview.NewTextView().
-		SetTextAlign(tview.AlignCenter).
-		SetText("text")
+				err := sendMsg(ip.(string), Data{Cmd: "talk", Body: input.GetText()})
+				if err != nil {
+
+					textBox.SetText(fmt.Sprintf("%s %s:%s", textBox.GetText(false), client.(Client).Name, err.Error()))
+
+				}
+				//textBox.SetText(fmt.Sprintf("%s\n%s:%s", textBox.GetText(false), client.(Client).Name, "["+c.Name+"] "))
+
+				input.SetText("")
+				return true
+			})
+		}
+		return event
+
+	})
+
+	clientsBox = tview.NewTextView().
+		SetTextAlign(tview.AlignLeft).
+		SetText(" 在线主机")
+	textBox = tview.NewTextView().
+		SetTextAlign(tview.AlignLeft).
+		SetText(" 内容框")
 	grid := tview.NewGrid().
-		SetRows(0, 3).
+		SetRows(0, 1).
 		SetColumns(0, 30).
 		SetBorders(true).
-		AddItem(form, 1, 0, 1, 2, 0, 0, true).
-		AddItem(text, 0, 0, 1, 1, 0, 0, false).
-		AddItem(clients, 0, 1, 1, 1, 0, 0, false)
+		AddItem(input, 1, 0, 1, 2, 0, 0, true).
+		AddItem(textBox, 0, 0, 1, 1, 0, 0, false).
+		AddItem(clientsBox, 0, 1, 1, 1, 0, 0, false)
 
 	pages.AddPage("base", grid, true, true)
+	refreshClients()
 	if err := app.SetRoot(pages, true).Run(); err != nil {
 		panic(err)
+	}
+}
+
+func refreshClients() {
+	//刷新客户端
+	if clientsBox != nil {
+		clients := " "
+		LANIPS.Range(func(ip, client interface{}) bool {
+			clients += client.(Client).Name + "\n "
+			return true
+		})
+		clientsBox.SetText(clients)
 	}
 }
