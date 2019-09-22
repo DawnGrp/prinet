@@ -18,7 +18,8 @@ func ChatRoomUI() {
 
 	input := tview.NewInputField()
 	input.SetFieldBackgroundColor(tcell.ColorDarkRed)
-	input.SetLabel(" Say: ").SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+	input.SetLabel(" Say: ")
+	input.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		if event.Key() == tcell.KeyEnter && len(input.GetText()) > 0 {
 
 			LANIPS.Range(func(ip interface{}, client interface{}) bool {
@@ -46,10 +47,12 @@ func ChatRoomUI() {
 
 	clientsBox = tview.NewTextView().
 		SetTextAlign(tview.AlignLeft).
-		SetText(" 在线主机")
+		SetText(" 无在线主机")
+	clientsBox.SetBackgroundColor(tcell.ColorDarkBlue)
 	textBox = tview.NewTextView().
 		SetTextAlign(tview.AlignLeft).
-		SetText(" 内容框")
+		SetText(" 聊天内容：")
+	textBox.SetBackgroundColor(tcell.ColorDarkGreen)
 	grid := tview.NewGrid().
 		SetRows(0, 1).
 		SetColumns(0, 30).
