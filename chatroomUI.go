@@ -10,16 +10,20 @@ import (
 
 var textBox *tview.TextView
 var clientsBox *tview.TextView
+var app *tview.Application
 
 //ChatRoomUI 界面
 func ChatRoomUI() {
-	app := tview.NewApplication()
+	app = tview.NewApplication()
 	pages := tview.NewPages()
 
 	input := tview.NewInputField()
 	input.SetFieldBackgroundColor(tcell.ColorDarkRed)
 	input.SetLabel(" Say: ")
 	input.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+
+		txt := input.GetText()
+
 		if event.Key() == tcell.KeyEnter && len(input.GetText()) > 0 {
 
 			LANIPS.Range(func(ip interface{}, client interface{}) bool {
@@ -29,7 +33,7 @@ func ChatRoomUI() {
 					return true
 				}
 
-				err := sendMsg(ip.(string), Data{Cmd: "talk", Body: input.GetText()})
+				err := sendMsg(ip.(string), Data{Cmd: "talk", Body: txt})
 				if err != nil {
 
 					textBox.SetText(fmt.Sprintf("%s %s:%s", textBox.GetText(false), client.(Client).Name, err.Error()))
@@ -48,14 +52,14 @@ func ChatRoomUI() {
 	clientsBox = tview.NewTextView().
 		SetTextAlign(tview.AlignLeft).
 		SetText(" 无在线主机")
-	clientsBox.SetBackgroundColor(tcell.ColorDarkBlue)
+	clientsBox.SetBackgroundColor(tcell.ColorDarkGreen)
 	textBox = tview.NewTextView().
 		SetTextAlign(tview.AlignLeft).
 		SetText(" 聊天内容：")
-	textBox.SetBackgroundColor(tcell.ColorDarkGreen)
+	textBox.SetBackgroundColor(tcell.ColorDarkSlateGray)
 	grid := tview.NewGrid().
 		SetRows(0, 1).
-		SetColumns(0, 30).
+		SetColumns(0, 20).
 		SetBorders(true).
 		AddItem(input, 1, 0, 1, 2, 0, 0, true).
 		AddItem(textBox, 0, 0, 1, 1, 0, 0, false).
@@ -78,5 +82,6 @@ func refreshClients() {
 			return true
 		})
 		clientsBox.SetText(clients)
+		app.Draw()
 	}
 }

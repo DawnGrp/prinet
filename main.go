@@ -263,6 +263,7 @@ func instructionSets(ip string, data Data) (err error) {
 		if ok {
 			//fmt.Println(client.(Client).Name, ":", data.Body)
 			textBox.SetText(fmt.Sprintf("%s %s:%s", textBox.GetText(false), client.(Client).Name, data.Body))
+			app.Draw()
 		}
 
 	case "quit":
