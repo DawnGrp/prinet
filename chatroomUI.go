@@ -63,6 +63,7 @@ func ChatRoomUI() {
 
 	pages.AddPage("base", grid, true, true)
 	refreshClients()
+
 	if err := app.SetRoot(pages, true).Run(); err != nil {
 		panic(err)
 	}

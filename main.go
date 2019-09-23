@@ -47,6 +47,7 @@ func main() {
 	initLocalInfo()
 	touch()
 
+	defer quit()
 	ChatRoomUI()
 
 }
@@ -264,7 +265,29 @@ func instructionSets(ip string, data Data) (err error) {
 			textBox.SetText(fmt.Sprintf("%s %s:%s", textBox.GetText(false), client.(Client).Name, data.Body))
 		}
 
+	case "quit":
+		client, ok1 := LANIPS.Load(ip)
+
+		if c, ok2 := client.(Client); ok1 && ok2 && c.Conn != nil {
+			c.Conn.Close()
+		}
+
+		LANIPS.Delete(ip)
 	}
 
 	return
+}
+
+func quit() {
+
+	data := Data{
+		Cmd:  "quit",
+		Body: "",
+	}
+
+	err := sendMsg("255.255.255.255", data)
+	if err != nil {
+		fmt.Println("i am quit", err.Error())
+	}
+
 }
