@@ -49,7 +49,6 @@ func main() {
 
 	defer quit()
 	ChatRoomUI()
-
 }
 
 func listenMsg() {
