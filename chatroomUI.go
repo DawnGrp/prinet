@@ -3,14 +3,9 @@ package main
 
 import (
 	"fmt"
-	"os/exec"
-	"runtime"
-	"strings"
 
-	notifier "github.com/deckarep/gosx-notifier"
 	"github.com/gdamore/tcell"
 	"github.com/rivo/tview"
-	"gopkg.in/toast.v1"
 )
 
 var textBox *tview.TextView
@@ -98,45 +93,10 @@ func refreshClients() {
 
 func printMsg(msg string) {
 
-	//terminal-notifier -title '💰' -message 'Check your Apple stock!'
-
-	switch {
-	case strings.Contains(runtime.GOOS, "windows"):
-		//OutputToNotificationCenterWindows(msg)
-	case strings.Contains(runtime.GOOS, "darwin"):
-		OutputToNotificationCenterDarwin(msg)
-	case strings.Contains(runtime.GOOS, "linux"):
-		OutputToNotificationCenterLinux(msg)
+	err := OutputToNotificationCenter(msg)
+	if err != nil {
+		textBox.SetText(fmt.Sprintf("%s %s", textBox.GetText(false), err.Error()))
 	}
-
 	textBox.SetText(fmt.Sprintf("%s %s", textBox.GetText(false), msg))
 	app.Draw()
-}
-
-func OutputToNotificationCenterLinux(msg string) error {
-
-	exec.Command("notify-send", msg).Run()
-	return nil
-}
-
-func OutputToNotificationCenterWindows(msg string) error {
-
-	notification := toast.Notification{
-		AppID:   "Prinet", // Shows up in the action center (lack of accent is due to encoding issues)
-		Title:   "消息",
-		Message: msg,
-	}
-
-	return notification.Push()
-}
-
-func OutputToNotificationCenterDarwin(msg string) error {
-
-	notification := notifier.Notification{
-		Title:   "消息",
-		Message: msg,
-		Sound:   notifier.Glass,
-	}
-
-	return notification.Push()
 }
