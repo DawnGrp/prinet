@@ -66,7 +66,12 @@ func ChatRoomUI() {
 		AddItem(clientsBox, 0, 1, 1, 1, 0, 0, false)
 
 	pages.AddPage("base", grid, true, true)
-	refreshClients()
+
+	go func() {
+		initLocalInfo()
+		touch()
+		refreshClients()
+	}()
 
 	if err := app.SetRoot(pages, true).Run(); err != nil {
 		panic(err)
@@ -84,4 +89,9 @@ func refreshClients() {
 		clientsBox.SetText(clients)
 		app.Draw()
 	}
+}
+
+func printMsg(msg string) {
+	textBox.SetText(fmt.Sprintf("%s %s", textBox.GetText(false), msg))
+	app.Draw()
 }

@@ -43,24 +43,22 @@ type Client struct {
 
 func main() {
 	go listenMsg()
-	time.Sleep(1 * time.Second) //等待监听启动完成。
-	initLocalInfo()
-	touch()
-
 	defer quit()
+	time.Sleep(1 * time.Second)
 	ChatRoomUI()
+
 }
 
 func listenMsg() {
 	addr, err := net.ResolveUDPAddr("udp", PORT)
 	if err != nil {
-		fmt.Println("resolve udp addr", err)
+		printMsg("resolve udp addr" + err.Error())
 		os.Exit(1)
 	}
 
 	conn, err := net.ListenUDP("udp", addr)
 	if err != nil {
-		fmt.Println("listen udp", err)
+		printMsg("listen udp" + err.Error())
 		os.Exit(1)
 	}
 
@@ -71,7 +69,7 @@ func listenMsg() {
 		data := make([]byte, BUFFERLEN)
 		_, rAddr, err := conn.ReadFromUDP(data)
 		if err != nil {
-			fmt.Println("Serv read", err)
+			printMsg("Serv read:" + err.Error())
 			continue
 		}
 
@@ -89,7 +87,7 @@ func listenMsg() {
 		jsonData := Data{}
 		err = json.Unmarshal(data, &jsonData)
 		if err != nil {
-			fmt.Println("json format err", err.Error())
+			printMsg("json format err:" + err.Error())
 			continue
 		}
 
@@ -99,11 +97,11 @@ func listenMsg() {
 		md5string := byte2MD5string(data)
 		_, err = conn.WriteToUDP([]byte(md5string), rAddr)
 		if err != nil {
-			fmt.Println("write md5", err)
+			printMsg("write md5:" + err.Error())
 			continue
 		}
 
-		//fmt.Println("Serv Send:", md5string, rAddr.IP.String())
+		//printMsg("Serv Send:", md5string, rAddr.IP.String())
 	}
 
 }
@@ -124,7 +122,7 @@ func sendMsg(ip string, data Data) (err error) {
 
 	err = c.Conn.SetDeadline(time.Now().Add(2 * time.Second))
 	if err != nil {
-		fmt.Println("set deadline ", ip, err.Error())
+		printMsg("set deadline " + ip + err.Error())
 		return
 	}
 	//写入数据
@@ -163,14 +161,14 @@ func touch() {
 
 	err := sendMsg("255.255.255.255", data)
 	if err != nil {
-		fmt.Println("touch uname", err.Error())
+		printMsg("touch uname:" + err.Error())
 	}
 
 	data.Cmd = "mname"
 	data.Body = HOSTNAME
 	err = sendMsg("255.255.255.255", data)
 	if err != nil {
-		fmt.Println("touch mname", err.Error())
+		printMsg("touch mname:" + err.Error())
 	}
 
 }
@@ -185,8 +183,8 @@ func initLocalInfo() (ips []*net.IPNet) {
 	for _, a := range addrs {
 		if ip, ok := a.(*net.IPNet); ok && !ip.IP.IsLoopback() {
 			if ip.IP.To4() != nil {
-				fmt.Println("IP:", ip.IP)
-				fmt.Println("子网掩码:", ip.Mask)
+				printMsg("IP:" + ip.IP.String())
+				printMsg("子网掩码:" + ip.Mask.String())
 				LOCALIP = ip.IP.String()
 
 			}
@@ -208,7 +206,7 @@ func checkClient(ip string) (c Client, err error) {
 	if !ok {
 		conn, err := net.Dial("udp", ip+PORT)
 		if err != nil {
-			fmt.Println("connect to ", ip, err.Error())
+			printMsg("connect to :" + ip + err.Error())
 			return c, err
 		}
 
@@ -235,9 +233,9 @@ func instructionSets(ip string, data Data) (err error) {
 
 		err := sendMsg(ip, data2Send)
 		if err != nil {
-			fmt.Println("re my name :", err.Error())
+			printMsg("re my name :" + err.Error())
 		}
-		fmt.Println("被询问", ip)
+		printMsg("被询问" + ip)
 	case "mname":
 		client, ok := LANIPS.Load(ip)
 		if !ok {
@@ -249,7 +247,7 @@ func instructionSets(ip string, data Data) (err error) {
 			return fmt.Errorf("not client object %s", ip)
 		}
 
-		fmt.Println("收到答复", c, data.Body)
+		printMsg("收到答复:" + c.Name + data.Body)
 		c.Name = data.Body
 
 		LANIPS.Store(ip, c)
@@ -260,9 +258,11 @@ func instructionSets(ip string, data Data) (err error) {
 
 		client, ok := LANIPS.Load(ip)
 		if ok {
-			//fmt.Println(client.(Client).Name, ":", data.Body)
-			textBox.SetText(fmt.Sprintf("%s %s:%s", textBox.GetText(false), client.(Client).Name, data.Body))
-			app.Draw()
+			//printMsg(client.(Client).Name, ":", data.Body)
+			// textBox.SetText(fmt.Sprintf("%s %s:%s", textBox.GetText(false), client.(Client).Name, data.Body))
+			// app.Draw()
+
+			printMsg(client.(Client).Name + ":" + data.Body)
 		}
 
 	case "quit":
