@@ -7,11 +7,11 @@ import (
 func OutputToNotificationCenter(msg string) error {
 
 	notification := toast.Notification{
-		AppID:   "Prinet", // Shows up in the action center (lack of accent is due to encoding issues)
-		Title:   "消息",
+		AppID:   "Microsoft.Windows.Shell.RunDialog", // Shows up in the action center (lack of accent is due to encoding issues)
+		Title:   "prinet message",
 		Message: msg,
 		Actions: []toast.Action{
-			{"关闭", "确定"},
+			{"protocol", "Close", ""},
 		},
 	}
 
